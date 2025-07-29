@@ -1,0 +1,828 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>公共聊天室</title>
+    <!-- 引入Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- 引入Font Awesome -->
+    <link href="https://cdn.jsdelivr.net/npm/font-awesome@4.7.0/css/font-awesome.min.css" rel="stylesheet">
+    
+    <!-- 配置Tailwind自定义颜色和字体 -->
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#165DFF',
+                        secondary: '#36CFC9',
+                        dark: '#1D2129',
+                        light: '#F2F3F5',
+                        success: '#52C41A',
+                        danger: '#FF4D4F',
+                        warning: '#FAAD14',
+                        info: '#1890FF'
+                    },
+                    fontFamily: {
+                        inter: ['Inter', 'system-ui', 'sans-serif'],
+                    },
+                }
+            }
+        }
+    </script>
+    
+    <!-- 自定义工具类 -->
+    <style type="text/tailwindcss">
+        @layer utilities {
+            .content-auto {
+                content-visibility: auto;
+            }
+            .scrollbar-hide {
+                scrollbar-width: none;
+                -ms-overflow-style: none;
+            }
+            .scrollbar-hide::-webkit-scrollbar {
+                display: none;
+            }
+            .text-shadow {
+                text-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            }
+            .transition-all-300 {
+                transition: all 300ms ease-in-out;
+            }
+        }
+    </style>
+    
+    <style>
+        body {
+            font-family: 'Inter', system-ui, sans-serif;
+        }
+        
+        /* 动画效果 */
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        .message-appear {
+            animation: fadeIn 0.3s ease-out forwards;
+        }
+        
+        .pulse {
+            animation: pulse 2s infinite;
+        }
+        
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+            100% { transform: scale(1); }
+        }
+    </style>
+</head>
+<body class="bg-gray-100 min-h-screen flex items-center justify-center p-4">
+    <!-- 入口密码验证界面 -->
+    <div id="password-entry" class="w-full max-w-md bg-white rounded-xl shadow-lg overflow-hidden transition-all duration-500 transform">
+        <div class="p-6 sm:p-8">
+            <div class="text-center mb-6">
+                <h2 class="text-[clamp(1.5rem,3vw,2rem)] font-bold text-dark text-shadow">
+                    公共聊天室
+                </h2>
+                <p class="text-gray-500 mt-2">请输入密码进入聊天室</p>
+            </div>
+            
+            <form id="password-form" class="space-y-4">
+                <div>
+                    <label for="entry-password" class="block text-sm font-medium text-gray-700 mb-1">
+                        进入密码
+                    </label>
+                    <div class="relative">
+                        <input type="password" id="entry-password" 
+                               class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all duration-200 outline-none"
+                               placeholder="请输入进入密码" required>
+                        <button type="button" id="toggle-password" class="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600">
+                            <i class="fa fa-eye-slash"></i>
+                        </button>
+                    </div>
+                </div>
+                
+                <button type="submit" 
+                        class="w-full bg-primary hover:bg-primary/90 text-white font-medium py-2 px-4 rounded-lg transition-all duration-200 transform hover:scale-[1.02] active:scale-[0.98] focus:outline-none focus:ring-2 focus:ring-primary/50 focus:ring-offset-2">
+                    进入聊天室
+                </button>
+            </form>
+            
+            <div id="password-error" class="mt-4 text-center text-danger text-sm hidden">
+                <i class="fa fa-exclamation-circle mr-1"></i>密码错误，请重新输入
+            </div>
+        </div>
+    </div>
+    
+    <!-- 用户认证界面 (登录/注册) -->
+    <div id="auth-section" class="w-full max-w-md bg-white rounded-xl shadow-lg overflow-hidden transition-all duration-500 transform scale-95 opacity-0 pointer-events-none">
+        <div class="p-6 sm:p-8">
+            <div class="text-center mb-6">
+                <h2 class="text-[clamp(1.5rem,3vw,2rem)] font-bold text-dark text-shadow">
+                    用户认证
+                </h2>
+                <div class="flex justify-center mt-4 border-b border-gray-200">
+                    <button id="login-tab" class="py-2 px-4 font-medium text-primary border-b-2 border-primary">
+                        登录
+                    </button>
+                    <button id="register-tab" class="py-2 px-4 font-medium text-gray-500 hover:text-gray-700">
+                        注册
+                    </button>
+                </div>
+            </div>
+            
+            <!-- 登录表单 -->
+            <form id="login-form" class="space-y-4">
+                <div>
+                    <label for="login-username" class="block text-sm font-medium text-gray-700 mb-1">
+                        用户名
+                    </label>
+                    <input type="text" id="login-username" 
+                           class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all duration-200 outline-none"
+                           placeholder="请输入用户名" required>
+                </div>
+                
+                <div>
+                    <label for="login-password" class="block text-sm font-medium text-gray-700 mb-1">
+                        密码
+                    </label>
+                    <input type="password" id="login-password" 
+                           class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all duration-200 outline-none"
+                           placeholder="请输入密码" required>
+                </div>
+                
+                <button type="submit" 
+                        class="w-full bg-primary hover:bg-primary/90 text-white font-medium py-2 px-4 rounded-lg transition-all duration-200 transform hover:scale-[1.02] active:scale-[0.98] focus:outline-none focus:ring-2 focus:ring-primary/50 focus:ring-offset-2">
+                    登录
+                </button>
+            </form>
+            
+            <!-- 注册表单 (默认隐藏) -->
+            <form id="register-form" class="space-y-4 hidden">
+                <div>
+                    <label for="register-username" class="block text-sm font-medium text-gray-700 mb-1">
+                        用户名
+                    </label>
+                    <input type="text" id="register-username" 
+                           class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all duration-200 outline-none"
+                           placeholder="请设置用户名" required>
+                </div>
+                
+                <div>
+                    <label for="register-password" class="block text-sm font-medium text-gray-700 mb-1">
+                        密码
+                    </label>
+                    <input type="password" id="register-password" 
+                           class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all duration-200 outline-none"
+                           placeholder="请设置密码 (至少6位)" minlength="6" required>
+                </div>
+                
+                <div>
+                    <label for="register-confirm" class="block text-sm font-medium text-gray-700 mb-1">
+                        确认密码
+                    </label>
+                    <input type="password" id="register-confirm" 
+                           class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all duration-200 outline-none"
+                           placeholder="请再次输入密码" required>
+                </div>
+                
+                <button type="submit" 
+                        class="w-full bg-primary hover:bg-primary/90 text-white font-medium py-2 px-4 rounded-lg transition-all duration-200 transform hover:scale-[1.02] active:scale-[0.98] focus:outline-none focus:ring-2 focus:ring-primary/50 focus:ring-offset-2">
+                    注册
+                </button>
+            </form>
+            
+            <div id="auth-message" class="mt-4 text-center text-sm hidden"></div>
+        </div>
+    </div>
+    
+    <!-- 聊天室主界面 -->
+    <div id="chat-room" class="w-full max-w-6xl bg-white rounded-xl shadow-lg overflow-hidden flex flex-col h-[90vh] max-h-[700px] transition-all duration-500 transform scale-95 opacity-0 pointer-events-none">
+        <!-- 顶部导航 -->
+        <header class="bg-primary text-white p-4 flex justify-between items-center">
+            <div class="flex items-center">
+                <i class="fa fa-comments-o text-2xl mr-3"></i>
+                <h1 class="text-xl font-bold">公共聊天室</h1>
+            </div>
+            <div class="flex items-center space-x-4">
+                <span id="current-user-display" class="hidden md:inline-flex items-center">
+                    <i class="fa fa-user-circle-o mr-1"></i>
+                    <span id="current-username"></span>
+                </span>
+                <button id="logout-btn" class="text-white hover:text-gray-200 transition-colors">
+                    <i class="fa fa-sign-out"></i>
+                    <span class="ml-1 hidden md:inline">退出</span>
+                </button>
+            </div>
+        </header>
+        
+        <!-- 主要内容区域 -->
+        <div class="flex flex-1 overflow-hidden">
+            <!-- 左侧用户列表 -->
+            <div class="w-64 bg-gray-50 border-r border-gray-200 flex flex-col hidden md:flex">
+                <div class="p-3 border-b border-gray-200">
+                    <h2 class="font-semibold text-gray-700">在线用户</h2>
+                    <div class="flex items-center mt-1 text-sm text-gray-500">
+                        <span class="inline-block w-2 h-2 bg-success rounded-full mr-1"></span>
+                        <span id="user-count">0 人在线</span>
+                    </div>
+                </div>
+                
+                <div class="flex-1 overflow-y-auto scrollbar-hide p-2">
+                    <div id="user-list" class="space-y-1">
+                        <!-- 用户列表将通过JavaScript动态生成 -->
+                    </div>
+                </div>
+            </div>
+            
+            <!-- 中间聊天区域 -->
+            <div class="flex-1 flex flex-col overflow-hidden">
+                <!-- 聊天标题栏 -->
+                <div class="bg-gray-50 border-b border-gray-200 p-3 flex items-center justify-between">
+                    <div class="flex items-center">
+                        <button id="show-users-btn" class="mr-2 md:hidden text-gray-500">
+                            <i class="fa fa-users"></i>
+                        </button>
+                        <h2 id="chat-title" class="font-semibold text-gray-700">公共聊天</h2>
+                    </div>
+                    <div>
+                        <button id="close-private-chat" class="text-gray-500 hover:text-gray-700 hidden">
+                            <i class="fa fa-times"></i>
+                        </button>
+                    </div>
+                </div>
+                
+                <!-- 聊天消息区域 -->
+                <div id="messages-container" class="flex-1 overflow-y-auto p-4 space-y-4 scrollbar-hide">
+                    <!-- 欢迎消息 -->
+                    <div class="text-center text-gray-500 text-sm py-2">
+                        欢迎来到公共聊天室！
+                    </div>
+                    
+                    <!-- 消息将通过JavaScript动态生成 -->
+                    <div id="messages-list" class="space-y-4">
+                        <!-- 示例系统消息 -->
+                        <div class="message-appear">
+                            <div class="flex justify-center">
+                                <span class="bg-gray-200 text-gray-700 text-xs px-3 py-1 rounded-full">
+                                    系统消息
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- 输入区域 -->
+                <div class="border-t border-gray-200 p-3 bg-white">
+                    <form id="message-form" class="flex items-end space-x-2">
+                        <textarea id="message-input" 
+                                  class="flex-1 border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all duration-200 outline-none resize-none"
+                                  rows="2" placeholder="输入消息..."></textarea>
+                        <button type="submit" 
+                                class="bg-primary hover:bg-primary/90 text-white p-3 rounded-lg transition-all duration-200 transform hover:scale-[1.05] active:scale-[0.95] focus:outline-none">
+                            <i class="fa fa-paper-plane"></i>
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 移动端用户列表侧边栏 -->
+        <div id="mobile-users" class="fixed inset-0 bg-black bg-opacity-50 z-50 transform translate-x-full transition-transform duration-300 md:hidden">
+            <div class="bg-white h-full w-64 shadow-xl p-4 transform transition-transform duration-300">
+                <div class="flex justify-between items-center mb-4">
+                    <h2 class="font-semibold text-gray-700">在线用户</h2>
+                    <button id="close-users-btn" class="text-gray-500">
+                        <i class="fa fa-times"></i>
+                    </button>
+                </div>
+                <div class="flex items-center mb-4 text-sm text-gray-500">
+                    <span class="inline-block w-2 h-2 bg-success rounded-full mr-1"></span>
+                    <span id="mobile-user-count">0 人在线</span>
+                </div>
+                <div id="mobile-user-list" class="space-y-1 max-h-[calc(100%-6rem)] overflow-y-auto scrollbar-hide">
+                    <!-- 用户列表将通过JavaScript动态生成 -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 全局变量
+        let currentUser = null;
+        let users = [];
+        let messages = [];
+        let privateChatTarget = null;
+        const ENTRY_PASSWORD = "lihaojinshuai";
+        
+        // DOM元素
+        const passwordEntry = document.getElementById('password-entry');
+        const passwordForm = document.getElementById('password-form');
+        const entryPassword = document.getElementById('entry-password');
+        const togglePassword = document.getElementById('toggle-password');
+        const passwordError = document.getElementById('password-error');
+        const authSection = document.getElementById('auth-section');
+        const loginTab = document.getElementById('login-tab');
+        const registerTab = document.getElementById('register-tab');
+        const loginForm = document.getElementById('login-form');
+        const registerForm = document.getElementById('register-form');
+        const authMessage = document.getElementById('auth-message');
+        const chatRoom = document.getElementById('chat-room');
+        const currentUsername = document.getElementById('current-username');
+        const logoutBtn = document.getElementById('logout-btn');
+        const userList = document.getElementById('user-list');
+        const mobileUserList = document.getElementById('mobile-user-list');
+        const userCount = document.getElementById('user-count');
+        const mobileUserCount = document.getElementById('mobile-user-count');
+        const showUsersBtn = document.getElementById('show-users-btn');
+        const closeUsersBtn = document.getElementById('close-users-btn');
+        const mobileUsers = document.getElementById('mobile-users');
+        const messagesList = document.getElementById('messages-list');
+        const messageForm = document.getElementById('message-form');
+        const messageInput = document.getElementById('message-input');
+        const chatTitle = document.getElementById('chat-title');
+        const closePrivateChat = document.getElementById('close-private-chat');
+        
+        // 初始化
+        function init() {
+            // 检查本地存储中的用户
+            const savedUser = localStorage.getItem('currentUser');
+            if (savedUser) {
+                currentUser = JSON.parse(savedUser);
+            }
+            
+            // 只保留系统用户，移除模拟的张三和李四
+            users = [
+                { id: 1, username: '系统消息', isSystem: true }
+            ];
+            
+            // 模拟一条系统欢迎消息
+            messages = [
+                {
+                    id: 1,
+                    text: '欢迎来到公共聊天室！',
+                    sender: { id: 1, username: '系统消息', isSystem: true },
+                    timestamp: new Date(Date.now() - 3600000),
+                    isPrivate: false
+                }
+            ];
+            
+            // 事件监听
+            setupEventListeners();
+        }
+        
+        // 设置事件监听
+        function setupEventListeners() {
+            // 密码验证表单
+            passwordForm.addEventListener('submit', handlePasswordSubmit);
+            togglePassword.addEventListener('click', togglePasswordVisibility);
+            
+            // 登录/注册标签切换
+            loginTab.addEventListener('click', () => switchAuthTab('login'));
+            registerTab.addEventListener('click', () => switchAuthTab('register'));
+            
+            // 登录和注册表单
+            loginForm.addEventListener('submit', handleLogin);
+            registerForm.addEventListener('submit', handleRegister);
+            
+            // 聊天室事件
+            logoutBtn.addEventListener('click', handleLogout);
+            messageForm.addEventListener('submit', handleSendMessage);
+            showUsersBtn.addEventListener('click', () => mobileUsers.classList.remove('translate-x-full'));
+            closeUsersBtn.addEventListener('click', () => mobileUsers.classList.add('translate-x-full'));
+            closePrivateChat.addEventListener('click', closePrivateConversation);
+            
+            // 窗口大小变化时重新渲染
+            window.addEventListener('resize', renderUsers);
+        }
+        
+        // 处理密码提交
+        function handlePasswordSubmit(e) {
+            e.preventDefault();
+            const password = entryPassword.value.trim();
+            
+            if (password === ENTRY_PASSWORD) {
+                // 密码正确，进入用户认证
+                passwordEntry.classList.add('opacity-0', 'pointer-events-none');
+                setTimeout(() => {
+                    passwordEntry.classList.add('hidden');
+                    authSection.classList.remove('scale-95', 'opacity-0', 'pointer-events-none');
+                    
+                    // 如果有保存的用户，自动登录
+                    if (currentUser) {
+                        enterChatRoom();
+                    }
+                }, 300);
+            } else {
+                // 密码错误
+                passwordError.classList.remove('hidden');
+                passwordError.classList.add('animate-pulse');
+                entryPassword.classList.add('border-danger');
+                
+                setTimeout(() => {
+                    passwordError.classList.remove('animate-pulse');
+                }, 1000);
+            }
+        }
+        
+        // 切换密码可见性
+        function togglePasswordVisibility() {
+            const type = entryPassword.getAttribute('type') === 'password' ? 'text' : 'password';
+            entryPassword.setAttribute('type', type);
+            
+            // 切换图标
+            const icon = togglePassword.querySelector('i');
+            if (type === 'password') {
+                icon.classList.remove('fa-eye');
+                icon.classList.add('fa-eye-slash');
+            } else {
+                icon.classList.remove('fa-eye-slash');
+                icon.classList.add('fa-eye');
+            }
+        }
+        
+        // 切换登录/注册标签
+        function switchAuthTab(tab) {
+            if (tab === 'login') {
+                loginTab.classList.add('text-primary', 'border-primary', 'border-b-2');
+                loginTab.classList.remove('text-gray-500');
+                registerTab.classList.remove('text-primary', 'border-primary', 'border-b-2');
+                registerTab.classList.add('text-gray-500');
+                loginForm.classList.remove('hidden');
+                registerForm.classList.add('hidden');
+            } else {
+                registerTab.classList.add('text-primary', 'border-primary', 'border-b-2');
+                registerTab.classList.remove('text-gray-500');
+                loginTab.classList.remove('text-primary', 'border-primary', 'border-b-2');
+                loginTab.classList.add('text-gray-500');
+                registerForm.classList.remove('hidden');
+                loginForm.classList.add('hidden');
+            }
+            authMessage.classList.add('hidden');
+        }
+        
+        // 处理登录
+        function handleLogin(e) {
+            e.preventDefault();
+            const username = document.getElementById('login-username').value.trim();
+            const password = document.getElementById('login-password').value.trim();
+            
+            // 从本地存储获取用户
+            const users = JSON.parse(localStorage.getItem('chatUsers') || '[]');
+            const user = users.find(u => u.username === username && u.password === password);
+            
+            if (user) {
+                currentUser = user;
+                localStorage.setItem('currentUser', JSON.stringify(user));
+                enterChatRoom();
+            } else {
+                showAuthMessage('用户名或密码错误', 'danger');
+            }
+        }
+        
+        // 处理注册
+        function handleRegister(e) {
+            e.preventDefault();
+            const username = document.getElementById('register-username').value.trim();
+            const password = document.getElementById('register-password').value.trim();
+            const confirm = document.getElementById('register-confirm').value.trim();
+            
+            // 验证
+            if (password !== confirm) {
+                showAuthMessage('两次输入的密码不一致', 'danger');
+                return;
+            }
+            
+            if (password.length < 6) {
+                showAuthMessage('密码长度至少为6位', 'danger');
+                return;
+            }
+            
+            // 检查用户名是否已存在
+            const users = JSON.parse(localStorage.getItem('chatUsers') || '[]');
+            if (users.some(u => u.username === username)) {
+                showAuthMessage('用户名已存在', 'danger');
+                return;
+            }
+            
+            // 创建新用户
+            const newUser = {
+                id: Date.now(),
+                username,
+                password
+            };
+            
+            users.push(newUser);
+            localStorage.setItem('chatUsers', JSON.stringify(users));
+            currentUser = newUser;
+            localStorage.setItem('currentUser', JSON.stringify(newUser));
+            
+            showAuthMessage('注册成功，正在进入聊天室...', 'success');
+            
+            setTimeout(() => {
+                enterChatRoom();
+            }, 1000);
+        }
+        
+        // 显示认证消息
+        function showAuthMessage(text, type) {
+            authMessage.textContent = text;
+            authMessage.className = `mt-4 text-center text-sm ${type === 'danger' ? 'text-danger' : 'text-success'}`;
+            authMessage.classList.remove('hidden');
+        }
+        
+        // 进入聊天室
+        function enterChatRoom() {
+            // 添加当前用户到在线列表
+            if (!users.some(u => u.id === currentUser.id)) {
+                users.push(currentUser);
+            }
+            
+            currentUsername.textContent = currentUser.username;
+            authSection.classList.add('opacity-0', 'pointer-events-none');
+            
+            setTimeout(() => {
+                authSection.classList.add('hidden');
+                chatRoom.classList.remove('scale-95', 'opacity-0', 'pointer-events-none');
+                
+                // 渲染用户和消息
+                renderUsers();
+                renderMessages();
+                
+                // 添加欢迎消息
+                addSystemMessage(`${currentUser.username} 加入了聊天室`);
+            }, 300);
+        }
+        
+        // 处理登出
+        function handleLogout() {
+            addSystemMessage(`${currentUser.username} 离开了聊天室`);
+            
+            // 从在线列表移除当前用户
+            users = users.filter(u => u.id !== currentUser.id);
+            
+            // 清除当前用户
+            currentUser = null;
+            localStorage.removeItem('currentUser');
+            
+            // 返回认证界面
+            chatRoom.classList.add('opacity-0', 'pointer-events-none');
+            
+            setTimeout(() => {
+                chatRoom.classList.add('hidden');
+                authSection.classList.remove('scale-95', 'opacity-0', 'pointer-events-none');
+                switchAuthTab('login');
+                
+                // 清空表单
+                document.getElementById('login-username').value = '';
+                document.getElementById('login-password').value = '';
+                document.getElementById('register-username').value = '';
+                document.getElementById('register-password').value = '';
+                document.getElementById('register-confirm').value = '';
+            }, 300);
+        }
+        
+        // 渲染用户列表
+        function renderUsers() {
+            userList.innerHTML = '';
+            mobileUserList.innerHTML = '';
+            
+            // 过滤掉系统用户
+            const nonSystemUsers = users.filter(u => !u.isSystem);
+            
+            // 更新用户计数
+            userCount.textContent = `${nonSystemUsers.length} 人在线`;
+            mobileUserCount.textContent = `${nonSystemUsers.length} 人在线`;
+            
+            nonSystemUsers.forEach(user => {
+                const isCurrentUser = currentUser && user.id === currentUser.id;
+                const userElement = document.createElement('div');
+                
+                userElement.className = `flex items-center p-2 rounded-lg cursor-pointer transition-colors ${
+                    isCurrentUser ? 'bg-gray-200' : 'hover:bg-gray-100'
+                }`;
+                
+                userElement.innerHTML = `
+                    <span class="inline-block w-2 h-2 bg-success rounded-full mr-2"></span>
+                    <span>${user.username}</span>
+                    ${isCurrentUser ? '<span class="ml-auto text-xs text-gray-500">(你)</span>' : ''}
+                `;
+                
+                // 不是当前用户时，可点击发起私聊
+                if (!isCurrentUser) {
+                    userElement.addEventListener('click', () => startPrivateChat(user));
+                }
+                
+                userList.appendChild(userElement);
+                
+                // 复制到移动用户列表
+                const mobileUserElement = userElement.cloneNode(true);
+                if (!isCurrentUser) {
+                    mobileUserElement.addEventListener('click', () => {
+                        startPrivateChat(user);
+                        mobileUsers.classList.add('translate-x-full');
+                    });
+                }
+                mobileUserList.appendChild(mobileUserElement);
+            });
+        }
+        
+        // 发起私聊
+        function startPrivateChat(user) {
+            privateChatTarget = user;
+            chatTitle.textContent = `与 ${user.username} 私聊`;
+            closePrivateChat.classList.remove('hidden');
+            renderMessages();
+        }
+        
+        // 关闭私聊
+        function closePrivateConversation() {
+            privateChatTarget = null;
+            chatTitle.textContent = '公共聊天';
+            closePrivateChat.classList.add('hidden');
+            renderMessages();
+        }
+        
+        // 处理发送消息
+        function handleSendMessage(e) {
+            e.preventDefault();
+            const text = messageInput.value.trim();
+            
+            if (!text) return;
+            
+            // 创建消息对象
+            const message = {
+                id: Date.now(),
+                text,
+                sender: currentUser,
+                timestamp: new Date(),
+                isPrivate: !!privateChatTarget,
+                target: privateChatTarget ? privateChatTarget.id : null
+            };
+            
+            // 添加消息
+            messages.push(message);
+            messageInput.value = '';
+            
+            // 渲染消息
+            renderMessages();
+            
+            // 自动滚动到底部
+            scrollToBottom();
+        }
+        
+        // 添加系统消息
+        function addSystemMessage(text) {
+            const systemUser = users.find(u => u.isSystem);
+            const message = {
+                id: Date.now(),
+                text,
+                sender: systemUser,
+                timestamp: new Date(),
+                isPrivate: false
+            };
+            
+            messages.push(message);
+            renderMessages();
+            scrollToBottom();
+        }
+        
+        // 渲染消息
+        function renderMessages() {
+            messagesList.innerHTML = '';
+            
+            // 过滤消息：如果在私聊中，只显示相关的私聊消息；否则显示公共消息
+            let filteredMessages = [];
+            
+            if (privateChatTarget) {
+                filteredMessages = messages.filter(msg => 
+                    (msg.isPrivate && 
+                     ((msg.sender.id === currentUser.id && msg.target === privateChatTarget.id) || 
+                      (msg.sender.id === privateChatTarget.id && msg.target === currentUser.id))) ||
+                    (msg.sender.isSystem) // 系统消息在私聊中也显示
+                );
+            } else {
+                filteredMessages = messages.filter(msg => !msg.isPrivate);
+            }
+            
+            // 添加消息到DOM
+            filteredMessages.forEach(message => {
+                const messageElement = createMessageElement(message);
+                messagesList.appendChild(messageElement);
+            });
+            
+            scrollToBottom();
+        }
+        
+        // 创建消息元素
+        function createMessageElement(message) {
+            const isCurrentUser = currentUser && message.sender.id === currentUser.id;
+            const isSystem = message.sender.isSystem;
+            
+            const messageDiv = document.createElement('div');
+            messageDiv.className = 'message-appear';
+            
+            // 格式化时间
+            const timeString = formatTime(message.timestamp);
+            
+            if (isSystem) {
+                // 系统消息
+                messageDiv.innerHTML = `
+                    <div class="flex justify-center">
+                        <span class="bg-gray-200 text-gray-700 text-xs px-3 py-1 rounded-full">
+                            ${message.text}
+                        </span>
+                    </div>
+                `;
+            } else {
+                // 用户消息
+                messageDiv.className = `message-appear flex ${isCurrentUser ? 'justify-end' : 'justify-start'}`;
+                
+                const messageContent = `
+                    <div class="${isCurrentUser ? 'items-end' : 'items-start'} flex max-w-[80%]">
+                        ${!isCurrentUser ? `
+                            <div class="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-primary mr-2 flex-shrink-0">
+                                ${message.sender.username.charAt(0)}
+                            </div>
+                        ` : ''}
+                        <div>
+                            ${!isCurrentUser ? `
+                                <div class="text-xs text-gray-500 mb-1">
+                                    ${message.sender.username} ${timeString}
+                                </div>
+                            ` : ''}
+                            <div class="${isCurrentUser ? 'bg-primary text-white' : 'bg-gray-200 text-gray-800'} px-4 py-2 rounded-lg rounded-tl-none ${message.isPrivate ? 'border-l-2 border-warning' : ''} relative">
+                                ${message.text}
+                                ${isCurrentUser ? `
+                                    <div class="absolute text-xs right-2 bottom-1 opacity-70">
+                                        ${timeString}
+                                    </div>
+                                    <button class="delete-message absolute top-1 right-1 text-xs opacity-0 hover:opacity-100 transition-opacity" data-id="${message.id}">
+                                        <i class="fa fa-times"></i>
+                                    </button>
+                                ` : ''}
+                            </div>
+                        </div>
+                    </div>
+                `;
+                
+                messageDiv.innerHTML = messageContent;
+                
+                // 添加删除消息事件
+                if (isCurrentUser) {
+                    const deleteBtn = messageDiv.querySelector('.delete-message');
+                    deleteBtn.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        const messageId = parseInt(e.currentTarget.getAttribute('data-id'));
+                        deleteMessage(messageId);
+                    });
+                }
+            }
+            
+            return messageDiv;
+        }
+        
+        // 删除消息（撤回）
+        function deleteMessage(messageId) {
+            const messageIndex = messages.findIndex(msg => msg.id === messageId);
+            if (messageIndex !== -1) {
+                // 替换为撤回消息
+                const originalMessage = messages[messageIndex];
+                const systemUser = users.find(u => u.isSystem);
+                
+                messages.splice(messageIndex, 1, {
+                    id: Date.now(),
+                    text: `${originalMessage.sender.username} 撤回了一条消息`,
+                    sender: systemUser,
+                    timestamp: new Date(),
+                    isPrivate: originalMessage.isPrivate,
+                    target: originalMessage.target,
+                    isDeleted: true
+                });
+                
+                renderMessages();
+            }
+        }
+        
+        // 格式化时间
+        function formatTime(date) {
+            const hours = date.getHours().toString().padStart(2, '0');
+            const minutes = date.getMinutes().toString().padStart(2, '0');
+            return `${hours}:${minutes}`;
+        }
+        
+        // 滚动到底部
+        function scrollToBottom() {
+            const container = document.getElementById('messages-container');
+            container.scrollTop = container.scrollHeight;
+        }
+        
+        // 初始化应用
+        document.addEventListener('DOMContentLoaded', init);
+    </script>
+</body>
+</html>
